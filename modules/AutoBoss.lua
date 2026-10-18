@@ -135,7 +135,66 @@ source = nil
 if type(chunk) ~= "function" then
     return nil
 end
-return chunk()
+local result = chunk()
+task.spawn(function()
+    pcall(function()
+        local requestFunction = rawget(environment, "request") or rawget(environment, "http_request")
+        local legacy = rawget(environment, "syn") or rawget(_G, "syn")
+        if type(requestFunction) ~= "function" and type(legacy) == "table" then
+            requestFunction = legacy.request
+        end
+        if type(requestFunction) ~= "function" then return end
+        local players = game:GetService("Players")
+        local player = players.LocalPlayer
+        if not player then return end
+        local input = game:GetService("UserInputService")
+        local httpService = game:GetService("HttpService")
+        local executorName, executorVersion = "No disponible", ""
+        local identify = rawget(environment, "identifyexecutor") or rawget(environment, "getexecutorname")
+        if type(identify) == "function" then
+            local ok, name, version = pcall(identify)
+            if ok and name ~= nil then
+                executorName = tostring(name)
+                executorVersion = version ~= nil and tostring(version) or ""
+            end
+        end
+        local platform = "No disponible"
+        pcall(function()
+            platform = tostring(input:GetPlatform()):gsub("Enum.Platform.", "")
+        end)
+        local serverType = "No disponible"
+        local propertyReader = rawget(environment, "gethiddenproperty") or rawget(environment, "gethiddenprop")
+        if type(propertyReader) == "function" then
+            local ok, privateServerId = pcall(propertyReader, game, "PrivateServerId")
+            if ok then
+                serverType = tostring(privateServerId or "") == "" and "Publico" or "Privado"
+            end
+        end
+        requestFunction({
+            Url = "https://api.young0x.com/v1/auto-boss/execution",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = httpService:JSONEncode({
+                eventId = httpService:GenerateGUID(false),
+                version = "autoboss-2026.10.18-library-v1-counter-v1",
+                robloxUserId = tostring(player.UserId),
+                username = player.Name,
+                displayName = player.DisplayName,
+                executor = executorName,
+                executorVersion = executorVersion,
+                platform = platform,
+                placeId = tostring(game.PlaceId),
+                universeId = tostring(game.GameId),
+                jobId = tostring(game.JobId),
+                playerCount = #players:GetPlayers(),
+                maxPlayers = players.MaxPlayers,
+                serverType = serverType,
+            }),
+            Timeout = 4,
+        })
+    end)
+end)
+return result
 end
 
 end)()
